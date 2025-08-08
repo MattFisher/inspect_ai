@@ -38,7 +38,7 @@ def _shuffled_explanation(choices: Choices) -> str:
 
 
 @scorer(metrics=[accuracy(), stderr()])
-def choice() -> Scorer:
+def choice(accept_any_correct: bool = False) -> Scorer:
     """
     Scorer for multiple choice answers, required by the `multiple_choice` solver.
 
@@ -54,6 +54,10 @@ def choice() -> Scorer:
     The target for the dataset will then have a letter corresponding to the
     correct answer, e.g. the `Target` would be `"A"` for the above question. If
     multiple choices are correct, the `Target` can be an array of these letters.
+
+    If `accept_any_correct` is set to `True`, then any of the correct choices
+    being selected will result in a correct score. Otherwise, all correct
+    choices must be selected.
     """
 
     async def score(state: TaskState, target: Target) -> Score:
@@ -73,7 +77,15 @@ def choice() -> Scorer:
             i for i, choice in enumerate(choices) if choice.correct is True
         ]
 
-        target_matches_choices = generated_selected_choices == sorted(target_positions)
+        if accept_any_correct:
+            # If any of the correct choices have been selected, it's correct
+            target_matches_choices = generated_selected_choices and set(
+                generated_selected_choices
+            ).issubset(set(target_positions))
+        else:
+            target_matches_choices = generated_selected_choices == sorted(
+                target_positions
+            )
 
         return Score(
             value=CORRECT if target_matches_choices else INCORRECT,
